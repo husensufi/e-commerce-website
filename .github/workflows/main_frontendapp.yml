@@ -15,24 +15,16 @@ jobs:
     permissions:
       contents: read #This is required for actions/checkout
 
-    defaults:
-      run:
-        working-directory: ./frontend
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
+          node-version: '24.x'
 
       - name: npm install, build, and test
-        working-directory: ./frontend
         run: |
-          cd ${{ github.workspace }}/frontend
           npm install
           npm run build --if-present
           npm run test --if-present
@@ -41,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: ./frontend
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -59,9 +51,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_9CFD8F2A5B3F4EB8A425FF552E951082 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_98CD945740284634A40AAF409D83AFA1 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A365E078E81540D090F87A88E7A6ADC0 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_7F2A4803AB24409CB9C02DA949E74ED6 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_81F113C37BB14C4FB64C2A8AC9516600 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DD490A4EF7EA49029ECA60F7953B6531 }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
@@ -70,3 +62,4 @@ jobs:
           app-name: 'frontendapp'
           slot-name: 'Production'
           package: .
+          
