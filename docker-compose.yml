@@ -1,26 +1,94 @@
-version: '3.1'
 services:
-  mongo:
-    image: mongo
-    restart: always
+
+  # ──────────────────────────────────────────────
+  # PostgreSQL Database
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecommerce_postgres
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - 27017:27017
+      - "5432:5432"
     volumes:
-      - mongodb_data_container:/data/db
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ecommerce_network
 
-  mongo-express:
-    image: mongo-express
-    restart: always
-    ports:
-      - 8081:8081
+  # ── pgAdmin removed (pull dpage/pgadmin4 manually if needed) ─────────────
+
+  # ──────────────────────────────────────────────
+  # FastAPI Backend
+  # Access: http://localhost:8000
+  # Docs:   http://localhost:8000/docs
+  # ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce_backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USERNAME}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD}
-      ME_CONFIG_MONGODB_SERVER: mongo
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      CORS: http://localhost:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src          # hot-reload: mount source
+      - ./backend/alembic:/app/alembic  # migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecommerce_network
+
+  # ──────────────────────────────────────────────
+  # React / Vite Frontend
+  # Access: http://localhost:5173
+  # ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecommerce_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src          # hot-reload: mount source
+      - /app/node_modules                # keep container node_modules
+    depends_on:
+      - backend
+    networks:
+      - ecommerce_network
+
+# ──────────────────────────────────────────────
+# Named Volumes
+# ──────────────────────────────────────────────
 volumes:
-  mongodb_data_container:
+  postgres_data:
+    driver: local
+
+# ──────────────────────────────────────────────
+# Network
+# ──────────────────────────────────────────────
+networks:
+  ecommerce_network:
+    driver: bridge

@@ -1,32 +1,44 @@
-from pydantic import BaseModel, Field
+import uuid
 from datetime import datetime
-from bson import ObjectId
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from pydantic import BaseModel
 from typing import Optional
 
 
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
-        return ObjectId(v)
-
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+class Base(DeclarativeBase):
+    """SQLAlchemy declarative base for all ORM models."""
+    pass
 
 
-class CommonModel(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+class TimestampMixin:
+    """Mixin that adds UUID primary key + timestamps to ORM models."""
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class CommonSchema(BaseModel):
+    """Pydantic base schema shared by all response models."""
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = { ObjectId: lambda v: str(v) }
-        media_type = "application/json"
+        orm_mode = True
+        json_encoders = {uuid.UUID: str, datetime: lambda v: v.isoformat()}

@@ -8,7 +8,7 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Union[str, None] = EmailStr
+    email: Union[str, None] = None
 
 
 class UserLoginSchema(BaseModel):

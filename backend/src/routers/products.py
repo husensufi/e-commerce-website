@@ -1,59 +1,107 @@
+import uuid
 from typing import List
-from fastapi import APIRouter, Body, HTTPException, status
-from fastapi.encoders import jsonable_encoder
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from database import db
-from models.products import Product, UpdateProduct
-from datetime import datetime
-from bson import ObjectId
+from database import get_db
+from models.products import ProductTable, ProductSchema, ProductCreateSchema, ProductUpdateSchema
 
 
 router = APIRouter(
-    prefix="/products", 
+    prefix="/products",
     tags=["Products"]
 )
 
 
-@router.get("/", response_model=List[Product])
-async def get_products():
-    products = await db["products"].find().to_list(100)
-    return products
+@router.get("/", response_model=List[ProductSchema])
+async def get_products(db: AsyncSession = Depends(get_db)):
+    """Retrieve all products."""
+    result = await db.execute(select(ProductTable).order_by(ProductTable.created_at.desc()))
+    products = result.scalars().all()
+    return [ProductSchema.from_orm_str_id(p) for p in products]
 
 
-@router.get("/{id}", response_model=Product)
-async def get_product(id: str):
-    if (product := await db["products"].find_one({"_id": ObjectId(id)})) is not None:
-        return product
-    raise HTTPException(status_code=404, detail=f"Product {id} not found")
+@router.get("/{id}", response_model=ProductSchema)
+async def get_product(id: str, db: AsyncSession = Depends(get_db)):
+    """Retrieve a single product by UUID."""
+    try:
+        product_uuid = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
+
+    result = await db.execute(
+        select(ProductTable).where(ProductTable.id == product_uuid)
+    )
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(status_code=404, detail=f"Product {id} not found")
+    return ProductSchema.from_orm_str_id(product)
 
 
-@router.post('/', response_model=Product, response_description="Update a Product")
-async def create_product(product: Product = Body(...)):
-    product = jsonable_encoder(product)
-    result = await db["products"].insert_one(product)
-    created = await db["products"].find_one({"_id": result.inserted_id})
-    return created
+@router.post("/", response_model=ProductSchema, status_code=status.HTTP_201_CREATED,
+             response_description="Create a new product")
+async def create_product(
+    product: ProductCreateSchema = Body(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new product."""
+    new_product = ProductTable(
+        name=product.name,
+        description=product.description,
+        price=product.price or 0.00,
+    )
+    db.add(new_product)
+    await db.flush()  # assigns DB-generated values (id, timestamps)
+    await db.refresh(new_product)
+    return ProductSchema.from_orm_str_id(new_product)
 
 
-@router.put('/{id}')
-async def update_product(id: str, product: Product = Body(...)):
-    product = {k: v for k, v in product.dict().items() if v is not None}
-    if len(product) > 1:
-        update_result = await db["products"].update_one({"_id": ObjectId(id)}, {"$set": product})
-        if update_result.modified.count() > 0:
-            if (updated_product := await db["products"].find_one({"_id": ObjectId(id)})) is not None:
-                return updated_product
+@router.put("/{id}", response_model=ProductSchema)
+async def update_product(
+    id: str,
+    product: ProductUpdateSchema = Body(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update an existing product by UUID."""
+    try:
+        product_uuid = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
 
-    if (existing_product := await db["students"].find_one({"_id": id})) is not None:
-        return existing_product
+    result = await db.execute(
+        select(ProductTable).where(ProductTable.id == product_uuid)
+    )
+    existing = result.scalar_one_or_none()
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Product {id} not found")
 
-    raise HTTPException(status_code=404, detail=f"Product {id} not found")
+    # Apply only provided fields
+    update_data = product.dict(exclude_unset=True, exclude={"id", "created_at", "updated_at"})
+    for field, value in update_data.items():
+        if value is not None:
+            setattr(existing, field, value)
+
+    await db.flush()
+    await db.refresh(existing)
+    return ProductSchema.from_orm_str_id(existing)
 
 
-@router.delete('{id}')
-async def delete_product(id: str):
-    delete_result = await db["products"].delete({"_id", ObjectId(id)})
-    if delete_result.delete_count == 1:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    raise HTTPException(status_code=404, detail=f"Product {id} not found")
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a product by UUID."""
+    try:
+        product_uuid = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
+
+    result = await db.execute(
+        select(ProductTable).where(ProductTable.id == product_uuid)
+    )
+    product = result.scalar_one_or_none()
+    if product is None:
+        raise HTTPException(status_code=404, detail=f"Product {id} not found")
+
+    await db.delete(product)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

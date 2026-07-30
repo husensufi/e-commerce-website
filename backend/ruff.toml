@@ -1,0 +1,24 @@
+# Ruff linter configuration for the FastAPI backend
+# Docs: https://docs.astral.sh/ruff/
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults (FastAPI uses Depends)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "database", "models", "routers", "auth", "middlewares"]

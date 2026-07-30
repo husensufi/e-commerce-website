@@ -1,14 +1,23 @@
 anyio==3.6.2
 click==8.1.3
-dnspython==2.2.1
 fastapi==0.88.0
 h11==0.14.0
 idna==3.4
-motor==3.1.1
-pydantic==1.10.2
-pymongo==4.3.3
+# PostgreSQL async driver (psycopg v3)
+psycopg[asyncio]==3.1.18
+# SQLAlchemy 2.x with async support
+sqlalchemy[asyncio]==2.0.23
+# Alembic for migrations
+alembic==1.13.1
+# Pydantic v1 (project uses pydantic v1 API)
+pydantic[email]==1.10.2
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+# Env & server
 python-dotenv==0.21.0
 sniffio==1.3.0
 starlette==0.22.0
 typing_extensions==4.4.0
 uvicorn==0.20.0
+python-multipart==0.0.6

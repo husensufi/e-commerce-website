@@ -1,0 +1,12 @@
+{
+  "include": ["backend/src"],
+  "extraPaths": ["backend/src"],
+  "pythonVersion": "3.10",
+  "executionEnvironments": [
+    {
+      "root": "backend/src"
+    }
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

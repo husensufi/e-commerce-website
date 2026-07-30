@@ -4,14 +4,15 @@ from dotenv import load_dotenv
 load_dotenv()
 config = os.environ
 
+# PostgreSQL connection
+DATABASE_URL = config.get(
+    "DATABASE_URL",
+    "postgresql+psycopg://admin:admin@localhost:5432/commerce"
+)
 
-DB_USERNAME = config.get("MONGO_USERNAME", "")
-DB_PASSWORD = config.get("MONGO_PASSWORD", "")
-DB_HOST = config.get("MONGO_DB_HOST", "mongo")
-DB_PORT = config.get("MONGO_DB_PORT", 27017)
-DB_NAME = config.get("MONGO_DB_NAME", "")
-
-MONGO_URI = f"mongodb://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?authSource=admin&retryWrites=true&w=majority"
-
-config["DB_NAME"] = DB_NAME
-config["MONGO_URI"] = MONGO_URI
+# Auth
+SECRET_KEY = config.get(
+    "SECRET_KEY",
+    "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(config.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))

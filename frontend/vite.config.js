@@ -8,4 +8,11 @@ export default defineConfig({
   resolve: {
     alias: [{ find: '@', replacement: path.resolve(__dirname, 'src') }],
   },
+  server: {
+    host: '0.0.0.0',   // required for Docker port mapping to work
+    port: 5173,
+    watch: {
+      usePolling: true, // required for hot-reload inside Docker on Windows/Mac
+    },
+  },
 });
