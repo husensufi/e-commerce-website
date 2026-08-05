@@ -1,8 +1,0 @@
-{
-  "python.analysis.extraPaths": [
-    "backend/src"
-  ],
-  "python.analysis.autoSearchPaths": true,
-  "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.typeCheckingMode": "basic"
-}
